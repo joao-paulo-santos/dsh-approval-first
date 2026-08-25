@@ -29,6 +29,8 @@ shipped tools.
 Requires a DeepSeek Harness checkout and a profile (here `web`):
 
 ```sh
+git clone https://github.com/joao-paulo-santos/dsh-approval-first
+
 # from the harness checkout
 pnpm dsh plugin --profile web add /path/to/dsh-approval-first
 
@@ -36,14 +38,9 @@ pnpm dsh plugin --profile web add /path/to/dsh-approval-first
 pnpm dsh --profile web --dump-config
 ```
 
-Then (re)start the harness; the host half loads at boot. Configure the row
-in the profile's `cordis.patch.yml`:
-
-```yaml
-- id: approval-first
-  config:
-    activeModes: ['read-only', 'workspace-write']
-```
+Then (re)start the harness; the host half loads at boot. No profile patch
+and no configuration: the plugin is active by itself in any session whose
+standing mode is not `danger-full-access`.
 
 ## What happens when
 

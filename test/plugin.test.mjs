@@ -371,12 +371,12 @@ check('apply runs cleanly when every inject is declared', () => {
 
 console.log('config schema')
 
-check('undefined config defaults activeModes to [read-only] with driftMode fail', () => {
-  assert.deepEqual(CONTRACT_CONFIG['~standard'].validate(undefined).value, { activeModes: ['read-only'], driftMode: 'fail' })
+check('undefined config defaults to both confining modes with driftMode fail', () => {
+  assert.deepEqual(CONTRACT_CONFIG['~standard'].validate(undefined).value, { activeModes: ['read-only', 'workspace-write'], driftMode: 'fail' })
 })
 
-check('empty object config defaults activeModes to [read-only] with driftMode fail', () => {
-  assert.deepEqual(CONTRACT_CONFIG['~standard'].validate({}).value, { activeModes: ['read-only'], driftMode: 'fail' })
+check('empty object config defaults to both confining modes with driftMode fail', () => {
+  assert.deepEqual(CONTRACT_CONFIG['~standard'].validate({}).value, { activeModes: ['read-only', 'workspace-write'], driftMode: 'fail' })
 })
 
 check('a valid activeModes list passes through', () => {
@@ -404,7 +404,8 @@ console.log('activation gating')
 
 check('standing mode NOT in activeModes registers NOTHING', () => {
   const agent = mkAgent('session-a', '/w')
-  const { disposePlugin } = installPlugin({ agents: [agent], standingMode: 'workspace-write' })
+  // danger-full-access is the one stance excluded by the default activeModes.
+  const { disposePlugin } = installPlugin({ agents: [agent], standingMode: 'danger-full-access' })
   assert.equal(agent.__registeredTools.size, 0)
   disposePlugin()
 })

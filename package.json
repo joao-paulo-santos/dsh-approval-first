@@ -1,6 +1,6 @@
 {
   "name": "dsh-approval-first",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Approval-first edit/write for DeepSeek Harness: shadow tools ask the user BEFORE a mutation the standing sandbox policy would deny, so the model never has to repeat a tool call with sandbox_permissions. In-policy writes stay silent, out-of-policy targets get an approval card on the first call. Registration follows the session's current standing mode live; a boot-time drift tripwire refuses to activate when the shipped edit/write definitions no longer match the frozen copies.",
   "type": "module",
   "license": "MIT",
