@@ -997,7 +997,144 @@ check('agent-less IN-workspace call under workspace-write mutates silently (ship
 })
 
 // ---------------------------------------------------------------------------
-// 8. Drift tripwire
+// 8. Unobserved-edit skip: probe fs/edit-intent, never ask for a doomed edit
+// ---------------------------------------------------------------------------
+
+console.log('unobserved-edit skip')
+
+/**
+ * Run one edit (or write) call against a chosen `fs/edit-intent` occupant,
+ * exactly as fs-observation-policy would occupy the slot: a pure lookup that
+ * resolves {version}, or throws FS_NOT_OBSERVED / FS_NOT_FOUND. Standing
+ * mode read-only, so every target is out-of-policy (the doomed-ask regime).
+ */
+const runProbeCall = async ({ toolName = 'edit', approvalOutcome = 'allowed-once', editIntent, denyWhen, execAgent = true, filePath = '/srv/data/db.conf' } = {}) => {
+  const agent = mkAgent('session-a', '/w')
+  const approval = mkApprovalService(approvalOutcome)
+  const fs = mkFsService({ denyWhen })
+  const pluginCtx = mkCtx(plugin.inject, {
+    approval,
+    fs,
+    agents: mkAgentsService([agent]),
+    sandboxPolicy: mkSandboxPolicyService('read-only'),
+    tools: mkToolsService(mkShippedGlobalTools(true)),
+  })
+  const disposePlugin = plugin.apply(pluginCtx, { activeModes: ['read-only', 'workspace-write', 'danger-full-access'] })
+  if (editIntent !== undefined) pluginCtx.__eventBus.on('fs/edit-intent', editIntent)
+  const tool = agent.__registeredTools.get(toolName)
+  const exec = mkExec(execAgent ? agent : undefined)
+  const args = toolName === 'edit'
+    ? { file_path: filePath, old_string: 'x', new_string: 'y' }
+    : { file_path: filePath, content: 'body\n' }
+  try {
+    const value = await tool.execute(args, exec)
+    return { value, text: tool.output.render(args, value)[0].text, fs, approval, tool, args }
+  } catch (thrown) {
+    return { thrown, fs, approval, tool, args }
+  } finally {
+    disposePlugin()
+  }
+}
+
+const gateObserved = (target, actor, next) => ({ version: 'version-observed-1' })
+const gateNeverRead = () => {
+  throw Object.assign(new Error('edit requires reading "/srv/data/db.conf" first'), {
+    name: 'FsError',
+    code: 'FS_NOT_OBSERVED',
+  })
+}
+const gateConfirmedAbsent = () => {
+  throw Object.assign(new Error('cannot edit "/srv/data/db.conf": not found'), {
+    name: 'FsError',
+    code: 'FS_NOT_FOUND',
+  })
+}
+
+check('probe OBSERVED: the ask happens exactly as today, and the observed version reaches the mutation', async () => {
+  const { value, fs, approval } = await runProbeCall({ editIntent: gateObserved })
+  assert.equal(approval.__requests.length, 1, 'an observed out-of-policy edit must still ask')
+  assert.equal(fs.__mutationCalls.length, 1)
+  assert.deepEqual(fs.__mutationCalls[0].expected, { version: 'version-observed-1' })
+  assert.equal(value.unchangedReason, undefined)
+})
+
+check('probe DOOMED (FS_NOT_OBSERVED): skip — no ask, no mutation, native gate error', async () => {
+  const { thrown, fs, approval } = await runProbeCall({ editIntent: gateNeverRead })
+  assert.equal(approval.__requests.length, 0, 'a doomed edit must never ask')
+  assert.equal(fs.__mutationCalls.length, 0)
+  assert.match(thrown.message, /^edit requires reading/)
+  assert.match(thrown.message, / — read the file, then retry$/)
+  assert.equal(thrown.code, 'FS_NOT_OBSERVED')
+})
+
+check('probe DOOMED (FS_NOT_FOUND): same skip, confirmed-absent variant', async () => {
+  const { thrown, fs, approval } = await runProbeCall({ editIntent: gateConfirmedAbsent })
+  assert.equal(approval.__requests.length, 0)
+  assert.equal(fs.__mutationCalls.length, 0)
+  assert.match(thrown.message, /not found$/)
+  assert.equal(thrown.code, 'FS_NOT_FOUND')
+})
+
+check('probe hits NO GATE (undefined, bare-default composition): the ask happens', async () => {
+  const { value, fs, approval } = await runProbeCall({ editIntent: undefined })
+  assert.equal(approval.__requests.length, 1)
+  assert.equal(fs.__mutationCalls.length, 1)
+  assert.equal(value.unchangedReason, undefined)
+})
+
+check('probe fails UNEXPECTEDLY: never skip on unknown — the ask happens, the real call fails natively', async () => {
+  const { thrown, approval } = await runProbeCall({
+    editIntent: () => { throw new Error('gate exploded') },
+  })
+  assert.equal(approval.__requests.length, 1, 'an unpredictable gate must route toward the ask')
+  assert.equal(thrown.message, 'gate exploded')
+})
+
+check('skipped call leaves no ask-then-fail residue: the gate error precedes the fence, the fallback never asks', async () => {
+  // denyWhen would deny EVERY policy, so had the call reached the fence it
+  // would deny and trigger the containment-miss fallback ask — but the gate
+  // refuses first, so no approval request may occur at any point.
+  const { thrown, fs, approval } = await runProbeCall({ editIntent: gateNeverRead, denyWhen: () => true })
+  assert.equal(approval.__requests.length, 0)
+  assert.equal(fs.__mutationCalls.length, 0)
+  assert.equal(thrown.code, 'FS_NOT_OBSERVED')
+})
+
+check('a wrongly-doomed probe (gate answers differently on the real call) degrades to the fallback ask', async () => {
+  // Exotic target-derivation divergence (maintenance.md): the probe reads
+  // doomed, the real dispatch observes. The skip runs the native path, the
+  // fence denies out-of-policy, and the EXISTING fallback converts the
+  // denial into the ask — a wasted cycle, then the normal card. No input
+  // combination mutates without a human decision.
+  let probeCalls = 0
+  const flakyGate = () => {
+    probeCalls += 1
+    if (probeCalls === 1) throw Object.assign(new Error('edit requires reading first'), { code: 'FS_NOT_OBSERVED' })
+    return { version: 'version-observed-2' }
+  }
+  const { text, fs, approval } = await runProbeCall({ editIntent: flakyGate, denyWhen: (policy) => policy?.workspaceRoot !== '/srv/data' })
+  assert.equal(approval.__requests.length, 1, 'the fence denial must still convert into the ask')
+  assert.equal(fs.__mutationCalls.length, 2)
+  assert.match(text, /has been updated successfully/)
+})
+
+check('write is NEVER skipped: a doomed-for-edit target still asks on write', async () => {
+  const { value, fs, approval } = await runProbeCall({ toolName: 'write', editIntent: gateNeverRead })
+  assert.equal(approval.__requests.length, 1)
+  assert.equal(fs.__mutationCalls.length, 1)
+  assert.equal(value.unchangedReason, undefined)
+})
+
+check('agent-less call: no probe, today\'s fail-closed path (unavailable, no mutation)', async () => {
+  const { value, text, fs, approval } = await runProbeCall({ editIntent: gateNeverRead, execAgent: false })
+  assert.equal(approval.__requests.length, 0)
+  assert.equal(fs.__mutationCalls.length, 0)
+  assert.equal(value.unchangedReason, 'unavailable')
+  assert.equal(text, 'approval unavailable; file unchanged')
+})
+
+// ---------------------------------------------------------------------------
+// 9. Drift tripwire
 // ---------------------------------------------------------------------------
 
 console.log('drift tripwire')
@@ -1122,7 +1259,7 @@ check('late rename under fail mode: live shadows are disposed and new agents get
 })
 
 // ---------------------------------------------------------------------------
-// 9. Live standing-mode switches arm/disarm shadows for LIVE agents
+// 10. Live standing-mode switches arm/disarm shadows for LIVE agents
 // ---------------------------------------------------------------------------
 
 console.log('live mode switches')
@@ -1228,7 +1365,7 @@ check('a switch after plugin unload does nothing (listener removed)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 10. Reversibility
+// 11. Reversibility
 // ---------------------------------------------------------------------------
 
 console.log('reversibility')

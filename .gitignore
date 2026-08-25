@@ -15,3 +15,4 @@ pnpm-debug.log*
 
 # Internal build spec (work order, not part of the shipped artifact)
 spec.md
+spec-unobserved-skip.md

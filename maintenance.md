@@ -35,6 +35,7 @@ re-implement from memory.
 | `writableRootsOf`, `isPathUnder`, `canonicalPath` | `packages/sandbox/sandbox/src/roots.ts`, `packages/fs/fs-sandbox/src/containment.ts` | verbatim ports |
 | standing-policy resolve | `packages/sandbox/sandbox-policy/src/index.ts` (`resolve({ session })`) | read-only usage |
 | `sandbox/mode` switch listener (live arm/disarm, v0.4.0) | `packages/sandbox/sandbox-policy/src/session-mode.ts` (`'sandbox/mode'` event, payload under `event.data`) + the `session/event` envelope convention (guide 04, workspace-history pattern) | event type + envelope shape |
+| `gateRefusesUnobservedEdit` probe (unobserved-edit skip, v0.6.0) | `packages/fs/fs-observation-policy/src/index.ts` `editIntent`: a pure WeakMap lookup (owner `actor?.agent?.session`) occupying the single `fs/edit-intent` decision slot. Dispatch contract: `await ctx.waterfall('fs/edit-intent', target, exec, () => undefined)`; resolves `{version}` (observed) or `undefined` (no listener composed); throws `FS_NOT_OBSERVED` (never read) / `FS_NOT_FOUND` (confirmed absent) | waterfall dispatch signature + return/throw codes |
 | per-agent registration | `packages/schedule/schedule/src/index.ts` pattern over `agent.ctx.tools.register` | mechanism, not text |
 
 ## 2. What watches for drift automatically (and what cannot)
@@ -95,6 +96,17 @@ not upstream's, so a green suite proves nothing about upstream drift.
   in such a deployment.
 - **Another plugin's scoped edit/write shadow wins** for an agent: ours
   skips that agent (half-registration reversed, stderr note). Expected.
+- **Probe/real target-key divergence** (v0.6.0 caveat, by design): the probe
+  resolves its target with `sessionResolveOptions(exec, filePath)` while the
+  shipped edit resolves with an extra `sandboxPolicy?.workspaceRoot`
+  argument, so in exotic setups (symlinked roots) the derived `targetKey`
+  can differ and the probe's answer can disagree with the real call's. Both
+  directions degrade safely: wrongly doomed → skip → real gate returns a
+  version → fence denies → the containment-miss fallback asks (a wasted
+  cycle, then the normal card); wrongly observed → ask → allow → real gate
+  throws (one wasted click, the status quo before this feature). No input
+  combination mutates without a human decision. Documented, not engineered
+  around.
 - The declared `@deepseek-ai/cordis` dependency is inert (the bundle imports
   no npm packages, see guide 08 Case 24); it exists for convention. If the
   checkout path ever disappears on this machine, drop the dependency.

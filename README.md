@@ -59,6 +59,19 @@ schemas, same validation and error texts, same diff cards and success
 phrasing. An approved write runs under a one-directory grant (the parent of
 the target), never `danger-full-access`.
 
+## Unobserved edit targets
+
+Asking first has one exception. The shipped `edit` tool refuses a file the
+session has never read (`edit requires reading "..." first`) before any
+sandbox check runs, so asking approval for such an edit would spend a card
+on a call that is certain to fail the moment it is allowed. The plugin
+probes that same read-first gate and, when it would refuse, steps aside:
+the call runs the native path and the model gets the harness's own error in
+the same turn, with no prompt from anyone. *The skip never denies anything;
+it only chooses who runs the check, so its errors cost a card, never a
+consent.* `write` is not affected: creating a file the session considers
+new is real work and still asks.
+
 ## Deprecation and drift
 
 - When DSH grows one-turn escalation natively, remove this bundle
@@ -85,7 +98,7 @@ Plain Node scripts, no build step. The fake context enforces the Cordis
 inject guard, so the suite can actually fail:
 
 ```sh
-node test/plugin.test.mjs        # 65 checks
+node test/plugin.test.mjs        # 74 checks
 node test/diff-parity.test.mjs   # 31 cases, oracles against the harness's own diff package
 ```
 
