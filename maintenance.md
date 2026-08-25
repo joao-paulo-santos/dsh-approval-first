@@ -1,4 +1,4 @@
-# maintenance.md — keeping dsh-approval-first honest across DSH updates
+# maintenance.md: keeping dsh-approval-first honest across DSH updates
 
 This bundle **mirrors the shipped `edit`/`write` tools by frozen copy**
 (spec Law 4: "copy the shipped tool's code path and insert the approval
@@ -9,13 +9,13 @@ detected.
 
 The plugin is an **interim shim**. The day the platform grows one-turn
 escalation as a first-class status, delete this bundle
-(`dsh plugin --profile web remove dsh-approval-first`) — nothing else needs
+(`dsh plugin --profile web remove dsh-approval-first`); nothing else needs
 cleanup.
 
 ## 1. What is copied, and from where
 
 Every frozen piece in `lib/index.js` has exactly one upstream source. When
-re-syncing, diff the upstream file against the named section — do not
+re-syncing, diff the upstream file against the named section; do not
 re-implement from memory.
 
 | Frozen piece (lib/index.js) | Upstream source | Notes |
@@ -46,7 +46,7 @@ and output schema (modulo the documented `unchangedReason` / relaxed
 `ctx.tools.get('edit'/'write')`. Rename/removal upstream is caught through
 the `read` witness. Behavior per `driftMode` is in the README.
 
-**Blind spots — the tripwire cannot see inside closures:**
+**Blind spots: the tripwire cannot see inside closures.**
 
 - success phrasing (`formatEditOutput` / `formatWriteOutput`),
 - validation and remedy texts,
@@ -57,16 +57,16 @@ the `read` witness. Behavior per `driftMode` is in the README.
 
 These fail **quietly** (see §4) and are only caught by the manual ritual
 (§3) or by noticing behavior change. The test fixtures pin *our* copies,
-not upstream's — a green suite proves nothing about upstream drift.
+not upstream's, so a green suite proves nothing about upstream drift.
 
 ## 3. The update ritual (after every DSH update)
 
-1. `node test/plugin.test.mjs && node test/diff-parity.test.mjs` — the
+1. `node test/plugin.test.mjs && node test/diff-parity.test.mjs`. The
    diff-parity suite re-oracles itself against the harness's own `diff`
    package, so an engine drift is caught here.
 2. Restart the profile and **watch the boot row**: `approval-first` must
    come up active. Under `driftMode: 'fail'` a drifted plugin refuses to
-   boot — that refusal IS the alarm working.
+   boot; that refusal IS the alarm working.
 3. Quick manual smoke: fresh session, in-workspace edit (silent), an
    out-of-workspace `write` (card on first call), reject one (calm
    unchanged result).
@@ -74,7 +74,7 @@ not upstream's — a green suite proves nothing about upstream drift.
    changed upstream (`git diff` the tool-fs / sandbox / user-approval /
    core-tools paths between the old and new harness versions).
 
-## 4. Failure-mode table — symptom → cause → action
+## 4. Failure-mode table: symptom, cause, action
 
 | Symptom | Cause | Action |
 | --- | --- | --- |
@@ -96,5 +96,5 @@ not upstream's — a green suite proves nothing about upstream drift.
 - **Another plugin's scoped edit/write shadow wins** for an agent: ours
   skips that agent (half-registration reversed, stderr note). Expected.
 - The declared `@deepseek-ai/cordis` dependency is inert (the bundle imports
-  no npm packages — guide 08, Case 24); it exists for convention. If the
+  no npm packages, see guide 08 Case 24); it exists for convention. If the
   checkout path ever disappears on this machine, drop the dependency.

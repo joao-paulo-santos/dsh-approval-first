@@ -1,7 +1,7 @@
 {
   "name": "dsh-approval-first",
   "version": "0.4.0",
-  "description": "Approval-first edit/write: agents get edit/write shadows that ask the user BEFORE a mutation the standing policy would deny (in-policy writes stay silent). Registration follows the session's CURRENT standing mode live — mid-session mode switches arm/disarm the shadows in place. Boot-time drift tripwire refuses to activate when the shipped edit/write definitions no longer match the frozen copies.",
+  "description": "Approval-first edit/write for DeepSeek Harness: shadow tools ask the user BEFORE a mutation the standing sandbox policy would deny, so the model never has to repeat a tool call with sandbox_permissions. In-policy writes stay silent, out-of-policy targets get an approval card on the first call. Registration follows the session's current standing mode live; a boot-time drift tripwire refuses to activate when the shipped edit/write definitions no longer match the frozen copies.",
   "type": "module",
   "license": "MIT",
   "main": "lib/index.js",
