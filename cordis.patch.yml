@@ -1,0 +1,5 @@
+# dsh-approval-first profile layer: one row mounting the host half.
+# Host-only bundle — no client half, no dsh.client declaration.
+- insert:
+    - id: approval-first
+      name: dsh-approval-first

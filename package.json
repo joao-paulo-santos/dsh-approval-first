@@ -1,0 +1,23 @@
+{
+  "name": "dsh-approval-first",
+  "version": "0.4.0",
+  "description": "Approval-first edit/write: agents get edit/write shadows that ask the user BEFORE a mutation the standing policy would deny (in-policy writes stay silent). Registration follows the session's CURRENT standing mode live — mid-session mode switches arm/disarm the shadows in place. Boot-time drift tripwire refuses to activate when the shipped edit/write definitions no longer match the frozen copies.",
+  "type": "module",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "maintenance.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
