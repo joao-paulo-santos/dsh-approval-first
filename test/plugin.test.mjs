@@ -747,7 +747,7 @@ check('an FS_NOT_OBSERVED failure gains the model-facing remedy', async () => {
       mkExec(agent),
     ),
     (thrownError) => {
-      assert.match(thrownError.message, / — read the file, then retry$/)
+      assert.match(thrownError.message, /\. read the file, then retry$/)
       assert.equal(thrownError.code, 'FS_NOT_OBSERVED')
       return true
     },
@@ -899,7 +899,7 @@ check('OUT-of-workspace write under workspace-write: asks FIRST with the outside
   })
   assert.equal(approval.__requests.length, 1)
   assert.equal(approval.__requests[0].toolName, 'write')
-  assert.equal(approval.__requests[0].reason, 'write dsh-demo.conf — outside the writable workspace')
+  assert.equal(approval.__requests[0].reason, 'write dsh-demo.conf (outside the writable workspace)')
   assert.deepEqual(fs.__mutationCalls[0].sandboxPolicy, {
     mode: 'workspace-write',
     workspaceRoot: '/etc',
@@ -955,7 +955,7 @@ check('containment-miss fallback: silent attempt denied by the fence converts in
     denyWhen: (policy) => policy?.workspaceRoot === '/w',
   })
   assert.equal(approval.__requests.length, 1)
-  assert.equal(approval.__requests[0].reason, 'edit app.js — outside the writable workspace')
+  assert.equal(approval.__requests[0].reason, 'edit app.js (outside the writable workspace)')
   assert.equal(fs.__mutationCalls.length, 2)
   assert.deepEqual(fs.__mutationCalls[1].sandboxPolicy, { mode: 'workspace-write', workspaceRoot: '/w/src' })
   assert.match(text, /has been updated successfully/)
@@ -1063,7 +1063,7 @@ check('probe DOOMED (FS_NOT_OBSERVED): skip — no ask, no mutation, native gate
   assert.equal(approval.__requests.length, 0, 'a doomed edit must never ask')
   assert.equal(fs.__mutationCalls.length, 0)
   assert.match(thrown.message, /^edit requires reading/)
-  assert.match(thrown.message, / — read the file, then retry$/)
+  assert.match(thrown.message, /\. read the file, then retry$/)
   assert.equal(thrown.code, 'FS_NOT_OBSERVED')
 })
 
